@@ -1,0 +1,46 @@
+import tensorflow as tf
+import numpy as np
+from sklearn import preprocessing
+
+def add_layer(x,x_rows,the_number_of_neurons,activation_function = None,normal = False):
+    Weights = tf.Variable(tf.random_normal([x_rows,the_number_of_neurons]))
+    WT = tf.transpose(Weights)
+    biases = tf.Variable(tf.zeros([the_number_of_neurons,1])+0.1)
+    Wx_plus_b = tf.add(tf.matmul(WT,x),biases)
+    Wx_plus_b_T = tf.transpose(Wx_plus_b)
+    if normal:
+        mean,var = tf.nn.moments(Wx_plus_b_T,axes=[0])
+        scale = tf.Variable(tf.ones([the_number_of_neurons]))
+        shift = tf.Variable(tf.zeros([the_number_of_neurons]))
+        eps = 0.001
+        Wx_plus_b = tf.nn.batch_normalization(Wx_plus_b_T,mean,var,shift,scale,eps)
+    if activation_function == None:
+        outputs = Wx_plus_b
+    else:
+        outputs = activation_function(Wx_plus_b)
+    return outputs
+    
+x_data = np.linspace(-10,10,3000)[:,np.newaxis]
+noise = np.random.normal(0,1,x_data.shape)
+y_data = np.square(x_data) - 0.5 + noise
+xs = tf.placeholder(tf.float32,[None,1])
+ys = tf.placeholder(tf.float32,[None,1])
+
+l1 = add_layer(xs,x_data.shape[0],10,activation_function=tf.nn.tanh)
+l1_shape = l1.get_shape().as_list()
+l2 = add_layer(l1,l1_shape[0],3,activation_function=tf.nn.tanh)
+l2_shape = l2.get_shape().as_list()
+
+prediction = add_layer(l2,l2_shape[0],1,activation_function=None,normal = False)
+loss = tf.reduce_mean(tf.reduce_sum(tf.square(ys - prediction),reduction_indices=[1]))
+train_step = tf.train.GradientDescentOptimizer(0.01).minimize(loss)
+
+init = tf.global_variables_initializer()
+iteration_times = 1000
+with tf.Session() as sess:
+    sess.run(init)
+    for i in range(iteration_times):
+        sess.run(train_step,feed_dict={xs:x_data,ys:y_data})
+        if i%100 == 0 :
+            print('loss = ',sess.run(loss,feed_dict={xs:x_data,ys:y_data}))
+ 
